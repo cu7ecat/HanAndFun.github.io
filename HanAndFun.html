@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title> 爱心代码 </title>
+    <meta charset="utf-8">
+    <meta name="Keywords" content="爱心代码，程序员表白">
+    <meta name="Description" content="爱心代码，HTML文件，何书悦GitHub爱心代码项目">
+    <link rel="shortcut icon" href="../picture/爱心.png" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--   https://github.com/heshuyue/love-code   -->
+    <style>
+        html,
+        body {
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            background: #000;
+        }
+
+        canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .title {
+            width: 20%;
+            height: 30%;
+            /* 文字居中 */
+            text-align: center;
+            /* 字体大小 */
+            font-size: 30px;
+            /* 背景颜色 */
+            background-color: transparent;
+            /* 文字颜色 */
+            color: rgba(247, 110, 206, 0.829);
+            /* 左右居中 */
+            margin: auto;
+            /* 定位 */
+            position: relative;
+            /* 上边距 */
+            top: 45%;
+            /* 字体 */
+            font-family: "幼圆";
+        }
+    </style>
+
+</head>
+
+<body>
+
+
+    <canvas id="pinkboard"></canvas>
+
+    <div class="title">HAN ❤ FUN</div>
+    <script>
+
+        var settings = {
+            particles: {
+                length: 500,
+                duration: 2,
+                velocity: 100,
+                effect: -0.75,
+                size: 30,
+            },
+        };
+
+
+        (function () { var b = 0; var c = ["ms", "moz", "webkit", "o"]; for (var a = 0; a < c.length && !window.requestAnimationFrame; ++a) { window.requestAnimationFrame = window[c[a] + "RequestAnimationFrame"]; window.cancelAnimationFrame = window[c[a] + "CancelAnimationFrame"] || window[c[a] + "CancelRequestAnimationFrame"] } if (!window.requestAnimationFrame) { window.requestAnimationFrame = function (h, e) { var d = new Date().getTime(); var f = Math.max(0, 16 - (d - b)); var g = window.setTimeout(function () { h(d + f) }, f); b = d + f; return g } } if (!window.cancelAnimationFrame) { window.cancelAnimationFrame = function (d) { clearTimeout(d) } } }());
+
+
+        var Point = (function () {
+            function Point(x, y) {
+                this.x = (typeof x !== 'undefined') ? x : 0;
+                this.y = (typeof y !== 'undefined') ? y : 0;
+            }
+            Point.prototype.clone = function () {
+                return new Point(this.x, this.y);
+            };
+            Point.prototype.length = function (length) {
+                if (typeof length == 'undefined')
+                    return Math.sqrt(this.x * this.x + this.y * this.y);
+                this.normalize();
+                this.x *= length;
+                this.y *= length;
+                return this;
+            };
+            Point.prototype.normalize = function () {
+                var length = this.length();
+                this.x /= length;
+                this.y /= length;
+                return this;
+            };
+            return Point;
+        })();
+
+
+        var Particle = (function () {
+            function Particle() {
+                this.position = new Point();
+                this.velocity = new Point();
+                this.acceleration = new Point();
+                this.age = 0;
+            }
+            Particle.prototype.initialize = function (x, y, dx, dy) {
+                this.position.x = x;
+                this.position.y = y;
+                this.velocity.x = dx;
+                this.velocity.y = dy;
+                this.acceleration.x = dx * settings.particles.effect;
+                this.acceleration.y = dy * settings.particles.effect;
+                this.age = 0;
+            };
+            Particle.prototype.update = function (deltaTime) {
+                this.position.x += this.velocity.x * deltaTime;
+                this.position.y += this.velocity.y * deltaTime;
+                this.velocity.x += this.acceleration.x * deltaTime;
+                this.velocity.y += this.acceleration.y * deltaTime;
+                this.age += deltaTime;
+            };
+            Particle.prototype.draw = function (context, image) {
+                function ease(t) {
+                    return (--t) * t * t + 1;
+                }
+                var size = image.width * ease(this.age / settings.particles.duration);
+                context.globalAlpha = 1 - this.age / settings.particles.duration;
+                context.drawImage(image, this.position.x - size / 2, this.position.y - size / 2, size, size);
+            };
+            return Particle;
+        })();
+
+
+        var ParticlePool = (function () {
+            var particles,
+                firstActive = 0,
+                firstFree = 0,
+                duration = settings.particles.duration;
+
+            function ParticlePool(length) {
+                // create and populate particle pool
+                particles = new Array(length);
+                for (var i = 0; i < particles.length; i++)
+                    particles[i] = new Particle();
+            }
+            ParticlePool.prototype.add = function (x, y, dx, dy) {
+                particles[firstFree].initialize(x, y, dx, dy);
+
+                // handle circular queue
+                firstFree++;
+                if (firstFree == particles.length) firstFree = 0;
+                if (firstActive == firstFree) firstActive++;
+                if (firstActive == particles.length) firstActive = 0;
+            };
+            ParticlePool.prototype.update = function (deltaTime) {
+                var i;
+
+
+                if (firstActive < firstFree) {
+                    for (i = firstActive; i < firstFree; i++)
+                        particles[i].update(deltaTime);
+                }
+                if (firstFree < firstActive) {
+                    for (i = firstActive; i < particles.length; i++)
+                        particles[i].update(deltaTime);
+                    for (i = 0; i < firstFree; i++)
+                        particles[i].update(deltaTime);
+                }
+
+
+                while (particles[firstActive].age >= duration && firstActive != firstFree) {
+                    firstActive++;
+                    if (firstActive == particles.length) firstActive = 0;
+                }
+
+
+            };
+            ParticlePool.prototype.draw = function (context, image) {
+
+                if (firstActive < firstFree) {
+                    for (i = firstActive; i < firstFree; i++)
+                        particles[i].draw(context, image);
+                }
+                if (firstFree < firstActive) {
+                    for (i = firstActive; i < particles.length; i++)
+                        particles[i].draw(context, image);
+                    for (i = 0; i < firstFree; i++)
+                        particles[i].draw(context, image);
+                }
+            };
+            return ParticlePool;
+        })();
+
+
+        (function (canvas) {
+            var context = canvas.getContext('2d'),
+                particles = new ParticlePool(settings.particles.length),
+                particleRate = settings.particles.length / settings.particles.duration,
+                time;
+
+
+            function pointOnHeart(t) {
+                return new Point(
+                    160 * Math.pow(Math.sin(t), 3),
+                    130 * Math.cos(t) - 50 * Math.cos(2 * t) - 20 * Math.cos(3 * t) - 10 * Math.cos(4 * t) + 25
+                );
+            }
+
+
+            var image = (function () {
+                var canvas = document.createElement('canvas'),
+                    context = canvas.getContext('2d');
+                canvas.width = settings.particles.size;
+                canvas.height = settings.particles.size;
+
+                function to(t) {
+                    var point = pointOnHeart(t);
+                    point.x = settings.particles.size / 2 + point.x * settings.particles.size / 350;
+                    point.y = settings.particles.size / 2 - point.y * settings.particles.size / 350;
+                    return point;
+                }
+
+                context.beginPath();
+                var t = -Math.PI;
+                var point = to(t);
+                context.moveTo(point.x, point.y);
+                while (t < Math.PI) {
+                    t += 0.01;
+                    point = to(t);
+                    context.lineTo(point.x, point.y);
+                }
+                context.closePath();
+
+                context.fillStyle = '#ea80b0';
+                context.fill();
+
+                var image = new Image();
+                image.src = canvas.toDataURL();
+                return image;
+            })();
+
+
+            function render() {
+
+                requestAnimationFrame(render);
+
+
+                var newTime = new Date().getTime() / 1000,
+                    deltaTime = newTime - (time || newTime);
+                time = newTime;
+
+
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+
+                var amount = particleRate * deltaTime;
+                for (var i = 0; i < amount; i++) {
+                    var pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
+                    var dir = pos.clone().length(settings.particles.velocity);
+                    particles.add(canvas.width / 2 + pos.x, canvas.height / 2 - pos.y, dir.x, -dir.y);
+                }
+
+
+                particles.update(deltaTime);
+                particles.draw(context, image);
+            }
+
+
+            function onResize() {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+            window.onresize = onResize;
+
+
+            setTimeout(function () {
+                onResize();
+                render();
+            }, 10);
+        })(document.getElementById('pinkboard'));
+    </script>
+
+
+<title>聚光灯与尘埃效果</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #000000; /* 纯黑色背景 */
+    overflow: hidden; /* 防止滚动条出现 */
+    height: 100vh; /* 视口高度 */
+    position: relative; /* 用于定位伪元素和尘埃容器 */
+  }
+
+  /* 聚光灯效果 */
+  body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /*
+      径向渐变模拟聚光灯
+      - 'ellipse at 100% 0%' 表示椭圆的中心在右上角
+      - 第一个颜色是灯光的核心颜色 (较亮，带一点黄色)
+      - 后续颜色逐渐变暗并最终透明，模拟光线衰减
+      - 百分比控制颜色过渡的范围和锐利度
+    */
+    background: radial-gradient(
+      ellipse at 100% 0%, /* 光源从右上角开始 */
+      rgba(255, 255, 220, 0.6) 0%,  /* 光束中心颜色 (淡黄色，较亮) */
+      rgba(200, 200, 150, 0.3) 25%, /* 光束过渡颜色 */
+      rgba(50, 50, 20, 0.1) 50%,   /* 光束边缘颜色 (更暗) */
+      rgba(0, 0, 0, 0) 70%         /* 完全透明，融入背景 */
+    );
+    pointer-events: none; /* 确保伪元素不会捕获鼠标事件 */
+    z-index: 1; /* 确保聚光灯在尘埃之上，但可以在其他内容之下 */
+  }
+
+  /* 尘埃颗粒容器 */
+  #dust-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* 容器本身不捕获事件 */
+    z-index: 0; /* 尘埃在聚光灯后面，或者说被聚光灯照亮 */
+  }
+
+  .dust-particle {
+    position: absolute;
+    background-color: rgba(150, 150, 150, 0.3); /* 非常细小的灰尘颜色，半透明 */
+    border-radius: 50%; /* 圆形颗粒 */
+    /* 初始大小会由JS随机设置 */
+  }
+</style>
+</head>
+<body>
+
+<div id="dust-container">
+  </div>
+
+<script>
+  const dustContainer = document.getElementById('dust-container');
+  const numParticles = 200; // 尘埃颗粒数量
+  const particles = [];
+
+  // 创建尘埃颗粒
+  for (let i = 0; i < numParticles; i++) {
+    const particle = document.createElement('div');
+    particle.classList.add('dust-particle');
+
+    // 随机大小 (非常小)
+    const size = Math.random() * 1.5 + 0.5; // 0.5px to 2px
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+
+    // 随机初始位置 (遍布整个屏幕)
+    particle.style.left = `${Math.random() * 100}vw`;
+    particle.style.top = `${Math.random() * 100}vh`;
+
+    // 随机透明度，增加层次感
+    particle.style.opacity = Math.random() * 0.4 + 0.1; // 0.1 to 0.5
+
+    // 为每个粒子存储一些动画属性
+    particles.push({
+      element: particle,
+      x: parseFloat(particle.style.left),
+      y: parseFloat(particle.style.top),
+      // 随机微小的漂移速度和方向
+      vx: (Math.random() - 0.5) * 0.1, // 水平速度
+      vy: (Math.random() - 0.5) * 0.1 + 0.05 // 垂直速度 (整体略微向下)
+    });
+
+    dustContainer.appendChild(particle);
+  }
+
+  // 动画循环
+  function animateDust() {
+    particles.forEach(p => {
+      // 更新位置
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // 边界检测与处理 (让粒子循环出现)
+      if (p.x < -5) p.x = window.innerWidth + 5; // 从右边重新出现
+      if (p.x > window.innerWidth + 5) p.x = -5; // 从左边重新出现
+      if (p.y < -5) p.y = window.innerHeight + 5; // 从底部重新出现
+      if (p.y > window.innerHeight + 5) p.y = -5; // 从顶部重新出现
+
+      p.element.style.left = `${p.x}px`;
+      p.element.style.top = `${p.y}px`;
+
+      // 可以考虑在这里随机改变 vx, vy 来模拟更无序的飘动，但会增加计算量
+      p.vx += (Math.random() - 0.5) * 0.01;
+      p.vy += (Math.random() - 0.5) * 0.01;
+
+      // // 限制速度防止过快
+      // p.vx = Math.max(-0.1, Math.min(0.1, p.vx));
+      // p.vy = Math.max(-0.1, Math.min(0.1, p.vy));
+
+    });
+
+    requestAnimationFrame(animateDust);
+  }
+
+  animateDust(); // 开始动画
+</script>
+<audio src="music.mp3" autoplay loop controls>
+    Your browser does not support the audio element.
+</audio>
+
+
+</body>
+
+</html>
